@@ -1,0 +1,139 @@
+---
+title: "BAX442 HW3"
+author: "Group 9"
+date: "2022/2/3"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+## 1. Build brand maps for car brands. The client's brand is Infinity
+data = read.csv('Cars_Data.csv')
+y = data[,17]
+x = as.matrix(data[,2:16])
+cor_mat = cor(x)
+
+##PCA
+out1 = eigen(cor_mat)
+va = out1$values
+ve = out1$vectors
+```
+
+```{r}
+## 2. How many factors to retain? 
+pdf("scree plot.pdf")
+plot(va, ylab = "Eigenvalues", xlab = "Component Nos")			
+dev.off()
+
+##choose eigenvalues > 1
+ego = va[va > 1]
+nn = nrow(as.matrix(ego))
+print('According to the rule of eigenvalues > 1, we can choose 4 factors.')
+```
+
+```{r}
+##3. Assign names to the retained factors (you may need to flip the factors and then assign names)
+out2 = ve[,1:nn]
+out3 <- ifelse(abs(out2) < 0.3, 0, out2)
+rownames(out3) = c('Attractive','Quiet','Unreliable','Poorly Built','Interesting','Sporty',	'Uncomfortable','Roomy','Easy Service','Prestige','Common','Economical','Successful','AvantGarde','Poor Value')
+
+out4 = out3
+z = x %*% out4
+out5 = lm(y ~ z)	
+summary(out5)
+
+out3[,which(out5$coefficients<0)-1] = -1*out3[,which(out5$coefficients<0)-1]
+out4 = out3
+z = x %*% out4
+out5 = lm(y ~ z)	
+summary(out5)
+
+out3
+Z1 = z[,1]
+Z2 = z[,2]
+z.out = cbind(Z1, Z2)
+rownames(z.out) = data[,1]
+
+pdf("BrandMapA.pdf")
+plot(Z1, Z2, main = "Brands in Z1 and Z2 space", xlab = "Benefit Z1", ylab = "Benefit Z2", col = "lightblue", pch = 19, cex = 2)	
+text(z.out, labels = row.names(z.out), font = 2, cex = 0.5, pos = 1)					
+dev.off()
+```
+
+```{r}
+##4. Explain iso-preference line and its difference from the regression line
+b1 = as.vector(coef(out5)[2])
+b2 = as.vector(coef(out5)[3])
+slope.iso.preference = - b1/b2				
+slope.ideal.vector = b2/b1 	
+print('The iso-preference line is that All brands on the line are equally preferred, Brands to right of the line are more preferred, and Brands to left of the line are less preferred. The difference between iso-preference line and regression line is that the ISO-preference line is derived from the X variables of a regression line. The iso-preference visualize the importances and inclination of customers on 2 attributes (2 Xs) of a regression of Attributes on Preference.')
+```
+
+```{r}
+##5. Explain what is an ideal vector and why it indicates the direction of increasing preferences 
+print('The ideal vector ispPerpendicular to the iso-preference lines and its the direction to improve the product design because when move at this direction the preference will increase mostly.')
+```
+
+```{r}
+##6. Compute the angles of iso-preference line and ideal vector arrow
+angle.iso.preference = atan(slope.iso.preference)*180/pi	
+angle.ideal.vector = atan(slope.ideal.vector)*180/pi
+cat('The angles of iso-preference line is',angle.iso.preference,'and the angle of ideal vector arrow is',angle.ideal.vector,'.\n')
+```
+
+```{r}
+##7. Find 95% confidence interval for the angle of the ideal vector. Use data bootstrap method we learnt in Class 3.
+
+bb = 1000
+num = nrow(data)
+result <- matrix(0, bb, 1)	
+
+for(ii in 1:bb) {
+  
+	data.star <- data[sample(num, num, replace = T),]	
+	ystar <- data.star[,17]
+	xstar <- data.star[,2:16]
+	cor_mat = cor(xstar)
+  out1 = eigen(cor_mat)
+  va = out1$values
+  ve = out1$vectors
+	ego = va[va > 1]
+  nn = nrow(as.matrix(ego))
+  out2 = ve[,1:nn]
+  out3 <- ifelse(abs(out2) < 0.3, 0, out2)
+  
+  out4 = out3
+  z = x %*% out4
+  out5 = lm(y ~ z)	
+  
+  out3[,which(out5$coefficients<0)-1] = -1*out3[,which(out5$coefficients<0)-1]
+  out4 = out3
+  z = x %*% out4
+  out5 = lm(y ~ z)	
+  b1 = as.vector(coef(out5)[2])
+  b2 = as.vector(coef(out5)[3])
+  slope.ideal.vector = b2/b1 	
+  angle.ideal.vector = atan(slope.ideal.vector)*180/pi
+	result[ii] =  angle.ideal.vector								# save rsq from iteration ii
+	
+}
+
+# 95% CI for  angle.ideal.vector	 from sorting
+angle.ideal.vector.CI.lower2 <- sort(result)[25]		# 25th value in sorted rsq.out
+angle.ideal.vector.CI.upper2 <- sort(result)[975]		# 975th value in sorted rsq.out
+
+# average slope.ideal.vector	
+angle.ideal.vector.avg2 <- mean(result,na.rm = T)		
+cat('The 95% confidence interval for ideal vector is between',angle.ideal.vector.CI.lower2,'and',angle.ideal.vector.CI.upper2)
+```
+
+```{r}
+##8. Recommend to Infinity's managers what they should do to improve their product design
+print('Infinity can stay away from neighboring brands such as BMW. They need to pay more attention to attractive, quiet, poorly build, prestige and successful.')
+```
+
+
+
